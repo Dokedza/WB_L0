@@ -1,0 +1,67 @@
+package api
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+
+	db "go1f/pkg/database"
+)
+
+type DataResp struct {
+	Data []*db.IncomingData `json:"data"`
+}
+type Apistruct struct {
+	Bdstruct *db.Bdstruct
+}
+
+// возврат данных по UID
+func (ap *Apistruct) getBackOrderhandler(w http.ResponseWriter, r *http.Request) {
+
+	Uid := r.URL.Query().Get("order_uid")
+	if Uid == "" {
+		jsonWriter(w, map[string]string{"error": "отсутствует UID"})
+		return
+	}
+	DataResp, err := ap.Bdstruct.GiveBackOrdrerData(Uid)
+	if err != nil {
+		jsonWriter(w, map[string]any{"error": err})
+		return
+	}
+	jsonData, err := json.Marshal(DataResp)
+	if err != nil {
+		jsonWriter(w, map[string]any{"error": "Ошибка отправки"})
+		return
+	}
+	w.Write(jsonData)
+}
+
+// доставление данных в бд
+func PutData(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var dataResp db.IncomingData
+	// err := json.NewDecoder(r.Body).Decode(&dataResp)
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		jsonWriter(w, map[string]any{"error": "Ошибка входящих данных"})
+		return
+	}
+	err = json.Unmarshal(body, &dataResp)
+	if err != nil {
+		jsonWriter(w, map[string]string{"error": "Ошибка декодирования"})
+		return
+	}
+	err = db.DataHasArrivedInOrders(&dataResp)
+	if err != nil {
+		jsonWriter(w, map[string]string{"error": fmt.Errorf("Ошибка связи с таблицами: %w", err).Error()})
+		return
+	}
+}
+
+// функция созданная исключительно для удобства написания ответов
+func jsonWriter(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-type", "application/json; charset=UTF-8")
+	json.NewEncoder(w).Encode(data)
+}

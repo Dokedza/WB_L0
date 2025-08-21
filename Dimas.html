@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Поиск</title>
+    <style>
+      .container { padding: 20px; }
+      .searchForm { display: flex; max-width: 700px; }
+      input[type="text"] { width: 100%; padding: 8px 10px; font-size: 14px; box-sizing: border-box; margin-right: 10px; }
+      button { padding: 8px 12px; font-size: 14px; cursor: pointer; }
+      td:first-child { font-weight: 600; }
+      .items, .items td, .items th { border: 1px solid black; padding: 5px;}
+      .info { margin-top: 12px; color: #666; font-size: 13px; }
+      .error { color: #b00020; margin-top: 10px; }
+      .result {visibility: hidden;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <form id="searchForm" class="searchForm">
+        <input id="orderId" name="order_uid" type="text" placeholder="Введите id" autocomplete="off" />
+        <button type="submit">Поиск</button>
+    </form>
+
+    <div class="info" id="status"></div>
+    <div id="result" class="result" style="margin-top:12px;">
+        <h3>Order</h3>
+        <table>
+            <tr>
+                <td>Order uid:</td>
+                <td id="order_uid"></td>
+            </tr>
+            <tr>
+                <td>Track number:</td>
+                <td id="track_number"></td>
+            </tr>
+            <tr>
+                <td>Entry:</td>
+                <td id="entry"></td>
+            </tr>
+            <tr>
+                <td>Locale:</td>
+                <td id="locale"></td>
+            </tr>
+            <tr>
+                <td>Internal signature:</td>
+                <td id="internal_signature"></td>
+            </tr>
+            <tr>
+                <td>Customer id:</td>
+                <td id="customer_id"></td>
+            </tr>
+            <tr>
+                <td>Delivery service:</td>
+                <td id="delivery_service"></td>
+            </tr>
+            <tr>
+                <td>Shardkey:</td>
+                <td id="shardkey"></td>
+            </tr>
+            <tr>
+                <td>Sm id:</td>
+                <td id="sm_id"></td>
+            </tr>
+            <tr>
+                <td>Date created:</td>
+                <td id="date_created"></td>
+            </tr>
+            <tr>
+                <td>Oof shard:</td>
+                <td id="oof_shard"></td>
+            </tr>
+        </table>
+        <h3>Delivery</h3>
+        <table>
+            <tr>
+                <td>Name:</td>
+                <td id="name"></td>
+            </tr>
+            <tr>
+                <td>Phone:</td>
+                <td id="phone"></td>
+            </tr>
+            <tr>
+                <td>Zip:</td>
+                <td id="zip"></td>
+            </tr>
+            <tr>
+                <td>City:</td>
+                <td id="city"></td>
+            </tr>
+            <tr>
+                <td>Address:</td>
+                <td id="address"></td>
+            </tr>
+            <tr>
+                <td>Region:</td>
+                <td id="region"></td>
+            </tr>
+            <tr>
+                <td>Email:</td>
+                <td id="email"></td>
+            </tr>
+        </table>
+        <h3>Payment</h3>
+        <table>
+            <tr>
+                <td>Transaction:</td>
+                <td id="transaction"></td>
+            </tr>
+            <tr>
+                <td>Request id:</td>
+                <td id="request_id"></td>
+            </tr>
+            <tr>
+                <td>Currency:</td>
+                <td id="currency"></td>
+            </tr>
+            <tr>
+                <td>Provider:</td>
+                <td id="provider"></td>
+            </tr>
+            <tr>
+                <td>Amount:</td>
+                <td id="amount"></td>
+            </tr>
+            <tr>
+                <td>Payment dt:</td>
+                <td id="payment_dt"></td>
+            </tr>
+            <tr>
+                <td>Bank:</td>
+                <td id="bank"></td>
+            </tr>
+            <tr>
+                <td>Delivery cost:</td>
+                <td id="delivery_cost"></td>
+            </tr>
+            <tr>
+                <td>Goods total:</td>
+                <td id="goods_total"></td>
+            </tr>
+            <tr>
+                <td>Custom fee:</td>
+                <td id="custom_fee"></td>
+            </tr>
+        </table>
+        <h3>Items</h3>
+        <table class="items" id="itemsTable"></table>
+    </div>
+</div>
+
+<script>
+  (function() {
+    const form = document.getElementById('searchForm');
+    const input = document.getElementById('orderId');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const table = document.getElementById('itemsTable');
+
+    function fillList(obj) {
+      if (obj && typeof obj === 'object') {
+        for (const key of Object.keys(obj)) {
+          const val = obj[key];
+          const el = document.getElementById(key);
+
+          if (val && typeof val === 'object') {
+            fillList(val);
+          } else if (val && el) {
+            el.textContent = val;
+          }
+        }
+      }
+    }
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const id = (input.value || '').trim();
+
+      statusEl.textContent = '';
+
+      if (!id) {
+        statusEl.textContent = 'Пожалуйста, введите id.';
+        statusEl.classList.remove('error');
+        return;
+      }
+
+      const baseUrl = 'http://localhost:7540/api/task/getBackOrderhandler';
+      const url = baseUrl + '?order_uid=' + encodeURIComponent(id);
+
+      statusEl.textContent = 'Выполняется запрос...';
+      statusEl.classList.remove('error');
+
+      fetch(url, {
+        method: 'GET',
+      })
+        .then(async response => response.json())
+        .then(data => {
+          if (data.error) {
+            throw new Error();
+          }
+          resultEl.style.visibility = 'visible';
+          statusEl.textContent = '';
+          const items = data.items;
+
+          fillList(data);
+
+          if (!Array.isArray(items) || items.length === 0) {
+            return;
+          }
+
+          const cols = [];
+          items.forEach(it => {
+            Object.keys(it).forEach(k => {
+              if (!cols.includes(k)) cols.push(k);
+            });
+          });
+
+          const thead = document.createElement('thead');
+          const trHead = document.createElement('tr');
+          cols.forEach(c => {
+            const th = document.createElement('th');
+            th.textContent = c;
+            trHead.appendChild(th);
+          });
+          thead.appendChild(trHead);
+          table.appendChild(thead);
+
+          const tbody = document.createElement('tbody');
+          items.forEach(it => {
+            const tr = document.createElement('tr');
+            cols.forEach(c => {
+              const td = document.createElement('td');
+              const val = it[c];
+              if (val !== null && typeof val === 'object') {
+                td.textContent = JSON.stringify(val);
+              } else {
+                td.textContent = val === undefined ? '' : String(val);
+              }
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          });
+          table.appendChild(tbody);
+        })
+        .catch(err => {
+          statusEl.textContent = "Данные отсутствуют";
+          resultEl.style.visibility = "hidden";
+        });
+    });
+  })();
+</script>
+</body>
+</html>
