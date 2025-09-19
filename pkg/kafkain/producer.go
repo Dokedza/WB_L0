@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	//"time"
-
+	order "github.com/dokedza/WB_L0/domain"
 	"github.com/dokedza/WB_L0/pkg/database"
 	"github.com/segmentio/kafka-go"
 )
@@ -35,7 +34,7 @@ func ConsumeMessage() {
 			log.Fatal("failed to read message:", err)
 		}
 
-		var dataResp database.IncomingData
+		var dataResp order.IncomingData
 		err = json.Unmarshal(msg.Value, &dataResp)
 		if err != nil {
 			log.Println("failed to unmarshal message:", err)

@@ -7,10 +7,12 @@ import (
 	"net/http"
 
 	db "go1f/pkg/database"
+
+	order "github.com/dokedza/WB_L0/domain"
 )
 
 type DataResp struct {
-	Data []*db.IncomingData `json:"data"`
+	Data []*order.IncomingData `json:"data"`
 }
 type Apistruct struct {
 	Bdstruct *db.Bdstruct
@@ -40,8 +42,8 @@ func (ap *Apistruct) getBackOrderhandler(w http.ResponseWriter, r *http.Request)
 // доставление данных в бд
 func PutData(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	var dataResp db.IncomingData
-	// err := json.NewDecoder(r.Body).Decode(&dataResp)
+	var dataResp order.IncomingData
+
 	body, err := io.ReadAll(r.Body)
 
 	if err != nil {

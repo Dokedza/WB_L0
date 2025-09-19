@@ -179,6 +179,7 @@
       const id = (input.value || '').trim();
 
       statusEl.textContent = '';
+      table.innerHTML = '';
 
       if (!id) {
         statusEl.textContent = 'Пожалуйста, введите id.';
@@ -202,6 +203,7 @@
           }
           resultEl.style.visibility = 'visible';
           statusEl.textContent = '';
+          table.innerHTML = '';
           const items = data.items;
 
           fillList(data);

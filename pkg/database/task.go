@@ -2,71 +2,18 @@ package database
 
 import (
 	"database/sql"
-	"time"
+	"errors"
+
+	order "github.com/dokedza/WB_L0/domain"
+	cache "github.com/dokedza/WB_L0/pkg/cache"
 )
 
-// описание структуры входящих данных
-// тут всё описано так как приходит
-type IncomingData struct {
-	OrderUID          string    `json:"order_uid"`
-	TrackNumber       string    `json:"track_number"`
-	Entry             string    `json:"entry"`
-	Delivery          Delivery  `json:"delivery"`
-	Payment           Payment   `json:"payment"`
-	Items             []Item    `json:"items"`
-	Locale            string    `json:"locale"`
-	InternalSignature string    `json:"internal_signature"`
-	CustomerID        string    `json:"customer_id"`
-	DeliveryService   string    `json:"delivery_service"`
-	Shardkey          string    `json:"shardkey"`
-	SmID              int       `json:"sm_id"`
-	DateCreated       time.Time `json:"date_created"`
-	OofShard          string    `json:"oof_shard"`
-}
-
-type Delivery struct {
-	Name    string `json:"name"`
-	Phone   string `json:"phone"`
-	Zip     string `json:"zip"`
-	City    string `json:"city"`
-	Address string `json:"address"`
-	Region  string `json:"region"`
-	Email   string `json:"email"`
-}
-
-type Payment struct {
-	Transaction  string  `json:"transaction"`
-	RequestID    string  `json:"request_id"`
-	Currency     string  `json:"currency"`
-	Provider     string  `json:"provider"`
-	Amount       int     `json:"amount"`
-	PaymentDt    int64   `json:"payment_dt"`
-	Bank         string  `json:"bank"`
-	DeliveryCost float64 `json:"delivery_cost"`
-	GoodsTotal   float64 `json:"goods_total"`
-	CustomFee    float64 `json:"custom_fee"`
-}
-
-type Item struct {
-	ChrtId      int    `json:"chrt_id"`
-	TrackNumber string `json:"track_number"`
-	Price       int    `json:"price"`
-	Rid         string `json:"rid"`
-	Name        string `json:"name"`
-	Sale        int    `json:"sale"`
-	Size        string `json:"size"`
-	TotalPrice  int    `json:"total_price"`
-	NmID        int    `json:"nm_id"`
-	Brand       string `json:"brand"`
-	Status      int    `json:"status"`
-}
-
 // функция обработки поступающих данных в дб
-func DataHasArrivedInOrders(in *IncomingData) error {
+func DataHasArrivedInOrders(in *order.IncomingData) error {
 	ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
-		return err
+		return errors.New("Ошибка подключения к базе данных")
 	}
 	defer db.Close()
 	// Сначала вставляем данные в таблицу delivery и получаем delivery_id
@@ -77,7 +24,7 @@ func DataHasArrivedInOrders(in *IncomingData) error {
 		in.Delivery.Address, in.Delivery.Region, in.Delivery.Email).Scan(&deliveryID)
 
 	if err != nil {
-		return err
+		return errors.New("Ошибка выполнения INSERT")
 	}
 
 	// Затем вставляем данные в таблицу payment и получаем payment_id
@@ -91,7 +38,7 @@ func DataHasArrivedInOrders(in *IncomingData) error {
 		in.Payment.GoodsTotal, in.Payment.CustomFee).Scan(&paymentID)
 
 	if err != nil {
-		return err
+		return errors.New("Ошибка выполнения INSERT")
 	}
 
 	// также заполняем таблицу items
@@ -101,7 +48,7 @@ func DataHasArrivedInOrders(in *IncomingData) error {
 			item.ChrtId, item.TrackNumber, item.Price, item.Rid, item.Name,
 			item.Sale, item.Size, item.TotalPrice, item.NmID, item.Brand, item.Status, in.OrderUID)
 		if err != nil {
-			return err
+			return errors.New("Ошибка выполнения INSERT")
 		}
 
 	}
@@ -116,32 +63,39 @@ func DataHasArrivedInOrders(in *IncomingData) error {
 		in.SmID, in.DateCreated, in.OofShard)
 
 	if err != nil {
-		return err
+		return errors.New("Ошибка выполнения INSERT")
 	}
 
 	return nil
 }
 
 type Bdstruct struct {
-	Cache *Cache
+	Cache *cache.Cache
 }
 
 // функция отправки доставки по её номеру order_uid
-func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*IncomingData, error) {
+func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error) {
+
 	//если есть в кэше отдаёт по нему
+
 	data, err := c.Cache.GiveFromCache(ordUid)
+
 	if err == nil {
 		return data, nil
 	} else {
+
 		//иначе происходят вычисления из бд
+
 		ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 		db, err := sql.Open("postgres", ConnStr)
+
 		if err != nil {
-			return nil, err
+			return nil, errors.New("Ошибка подключения к базе данных")
 		}
 		defer db.Close()
 
 		//получение самого заказа
+
 		row := db.QueryRow(`SELECT  o.order_uid, o.track_number, o.entry, o.locale, d.name, d.phone, d.zip, d.city, 
 	d.address, d.region, d.email, p.transaction, p.request_id, p.currency, p.provider,p.amount, p.payment_dt, 
 	p.bank, p.delivery_cost, p.goods_total, p.custom_fee, o.internal_signature, o.customer_id, o.delivery_service, o.shardkey, 
@@ -151,13 +105,13 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*IncomingData, error) {
 	JOIN payment p ON o.payment_id = p.payment_id
 	WHERE o.order_uid = $1`, ordUid)
 
-		ots := &IncomingData{}
+		ots := &order.IncomingData{}
 		err = row.Scan(&ots.OrderUID, &ots.TrackNumber, &ots.Entry, &ots.Locale, &ots.Delivery.Name, &ots.Delivery.Phone, &ots.Delivery.Zip,
 			&ots.Delivery.City, &ots.Delivery.Address, &ots.Delivery.Region, &ots.Delivery.Email, &ots.Payment.Transaction, &ots.Payment.RequestID,
 			&ots.Payment.Currency, &ots.Payment.Provider, &ots.Payment.Amount, &ots.Payment.PaymentDt, &ots.Payment.Bank, &ots.Payment.DeliveryCost, &ots.Payment.GoodsTotal,
 			&ots.Payment.CustomFee, &ots.InternalSignature, &ots.CustomerID, &ots.DeliveryService, &ots.Shardkey, &ots.SmID, &ots.DateCreated, &ots.OofShard)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("Ошибка выполнения SELECT")
 		}
 
 		itemsRows, err := db.Query(`SELECT i.chtr_id, i.track_number, i.price, i.rid, i.name, i.sale, i.size,
@@ -165,19 +119,23 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*IncomingData, error) {
 	FROM items i 
 	WHERE i.order_uid = $1 `, ordUid)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("Ошибка выполнения SELECT")
 		}
 		defer itemsRows.Close()
 
 		for itemsRows.Next() {
-			item := Item{}
+			item := order.Item{}
 			err = itemsRows.Scan(&item.ChrtId, &item.TrackNumber, &item.Price, &item.Rid, &item.Name, &item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status)
 			if err != nil {
-				return nil, err
+				return nil, errors.New("Ошибка выполнения SELECT")
 			}
 			ots.Items = append(ots.Items, item)
 		}
+
+		//добавление получаемого заказа в кэш
+
 		c.Cache.Cache[ordUid] = *ots
+
 		return ots, nil
 	}
 }
