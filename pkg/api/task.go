@@ -40,7 +40,7 @@ func (ap *Apistruct) getBackOrderhandler(w http.ResponseWriter, r *http.Request)
 }
 
 // доставление данных в бд
-func PutData(w http.ResponseWriter, r *http.Request) {
+func (ap *Apistruct) PutData(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	var dataResp order.IncomingData
 
@@ -55,7 +55,7 @@ func PutData(w http.ResponseWriter, r *http.Request) {
 		jsonWriter(w, map[string]string{"error": "Ошибка декодирования"})
 		return
 	}
-	err = db.DataHasArrivedInOrders(&dataResp)
+	err = db.DataHasArrivedInOrders(&dataResp, ap.Bdstruct)
 	if err != nil {
 		jsonWriter(w, map[string]string{"error": fmt.Errorf("Ошибка связи с таблицами: %w", err).Error()})
 		return

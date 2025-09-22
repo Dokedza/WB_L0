@@ -6,7 +6,7 @@ import (
 
 func Init(c *Apistruct) {
 	http.HandleFunc("/api/task/getBackOrderhandler", corsMiddleware(c.getBackOrderhandler))
-	http.HandleFunc("/api/task/PutData", PutData)
+	http.HandleFunc("/api/task/PutData", c.PutData)
 }
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

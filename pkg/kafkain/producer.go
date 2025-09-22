@@ -42,7 +42,7 @@ func ConsumeMessage() {
 		}
 
 		// Обрабатываем сообщение
-		err = database.DataHasArrivedInOrders(&dataResp)
+		err = database.DataHasArrivedInOrders(&dataResp, nil)
 		if err != nil {
 			log.Println("failed to process message:", err)
 			continue

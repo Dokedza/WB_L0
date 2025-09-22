@@ -9,7 +9,7 @@ import (
 )
 
 // функция обработки поступающих данных в дб
-func DataHasArrivedInOrders(in *order.IncomingData) error {
+func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
 	ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
@@ -65,6 +65,10 @@ func DataHasArrivedInOrders(in *order.IncomingData) error {
 	if err != nil {
 		return errors.New("Ошибка выполнения INSERT")
 	}
+
+	// теперь добавляем данные в кэш
+
+	bd.Cache.Set(in.OrderUID, *in)
 
 	return nil
 }
@@ -134,7 +138,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 
 		//добавление получаемого заказа в кэш
 
-		c.Cache.Cache[ordUid] = *ots
+		c.Cache.Set(ordUid, *ots)
 
 		return ots, nil
 	}

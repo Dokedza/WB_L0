@@ -1,6 +1,7 @@
 version: "3.8"
 
 services:
+  # Redpanda (NATS-совместимый брокер)
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:latest
     container_name: redpanda
@@ -16,26 +17,27 @@ services:
       - --advertise-kafka-addr PLAINTEXT://redpanda:9092,OUTSIDE://localhost:29092
     ports:
       - "9092:9092"     # для внутренних сервисов
-      - "29092:29092"   # для локального подключения (kafka clients, kafkacat, etc.)
+      - "29092:29092"   # для локального подключения
     volumes:
       - redpanda-data:/var/lib/redpanda/data
 
+  # Redpanda Console 
   redpanda-console:
     image: docker.redpanda.com/redpandadata/console:latest
     container_name: redpanda-console
     ports:
-      - "8080:8080"
+      - "8081:8080"    # 8081, чтобы не конфликтовало с приложением
     environment:
       - KAFKA_BROKERS=redpanda:9092
     depends_on:
       - redpanda
 
-# PostgreSQL база данных
+  # PostgreSQL база данных
   postgres:
     image: postgres:15-alpine
     container_name: postgres
     environment:
-      POSTGRES_DB: myapp
+      POSTGRES_DB: wb_orders
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 5037
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -45,11 +47,33 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d myapp"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wb_orders"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: unless-stopped
+
+  # Go-приложение
+  app:
+    build: .  # корень проекта
+    container_name: wb-app
+    ports:
+      - "8080:8080"    # Основное приложение
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=wb_orders
+      - DB_USER=postgres
+      - DB_PASSWORD=5037
+      - NATS_URL=redpanda:9092
+    depends_on:
+      postgres:
+        condition: service_healthy  # Ждем готовности БД
+      redpanda:
+        condition: service_started
+    restart: unless-stopped
+    volumes:
+      - .:/app  
 
 volumes:
   redpanda-data:

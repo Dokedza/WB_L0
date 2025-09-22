@@ -10,16 +10,21 @@ import (
 	order "github.com/dokedza/WB_L0/domain"
 )
 
+type cacheEntry struct {
+	data      order.IncomingData
+	expiresAt time.Time
+}
+
 // структрура для кэша
 type Cache struct {
 	Mu     sync.RWMutex
-	Cache  map[string]order.IncomingData
+	Cache  map[string]cacheEntry
 	Ticker *time.Ticker
 }
 
 func New() *Cache {
 	return &Cache{
-		Cache: make(map[string]order.IncomingData, 100),
+		Cache: make(map[string]cacheEntry, 100),
 		Mu:    sync.RWMutex{},
 	}
 }
@@ -47,7 +52,8 @@ func (ch *Cache) CacheInit() error {
 	}
 
 	defer OrdRows.Close()
-
+	// Временная мапа для загруженных данных
+	tempCache := make(map[string]order.IncomingData)
 	for OrdRows.Next() {
 		ots := order.IncomingData{}
 		err = OrdRows.Scan(&ots.OrderUID, &ots.TrackNumber, &ots.Entry, &ots.Locale, &ots.Delivery.Name, &ots.Delivery.Phone, &ots.Delivery.Zip,
@@ -77,10 +83,21 @@ func (ch *Cache) CacheInit() error {
 			ots.Items = append(ots.Items, item)
 		}
 
-		ch.Mu.Lock()
-		ch.Cache[ots.OrderUID] = ots
-		ch.Mu.Unlock()
+		tempCache[ots.OrderUID] = ots
 	}
+	// Переносим данные в основной кэш с TTL
+	ch.Mu.Lock()
+	for key, data := range tempCache {
+		ch.Cache[key] = cacheEntry{
+			data:      data,
+			expiresAt: time.Now().Add(1 * time.Hour), // Устанавливаем TTL 1 час
+		}
+	}
+	ch.Mu.Unlock()
+
+	ch.startCleanup(1 * time.Minute)
+
+	log.Printf("Кэш инициализирован: згружено %d записей", len(tempCache))
 	return nil
 }
 func (ch *Cache) GiveFromCache(OrdUID string) (*order.IncomingData, error) {
@@ -88,36 +105,75 @@ func (ch *Cache) GiveFromCache(OrdUID string) (*order.IncomingData, error) {
 	if !exists {
 		return nil, errors.New("Отсутствует в кэше")
 	}
-	return &a, nil
+	if time.Now().After(a.expiresAt) {
+		return nil, errors.New("Запись просрочена")
+	}
+	return &a.data, nil
 }
 
-// функция перезаписывающая текущий кэш
-func (ch *Cache) authoRefresh() error {
+// функция для добавления новой записи в кэш
+func (ch *Cache) Set(key string, data order.IncomingData) {
 	ch.Mu.Lock()
 	defer ch.Mu.Unlock()
-	ch.Cache = make(map[string]order.IncomingData)
-
-	return ch.CacheInit()
-}
-
-// исключительно для остановки тикера через defer в функции main
-func (ch *Cache) StopAuthoRefresh() {
-	if ch.Ticker != nil {
-		ch.Ticker.Stop()
+	ch.Cache[key] = cacheEntry{
+		data:      data,
+		expiresAt: time.Now().Add(1 * time.Hour),
 	}
 }
-
-// метод с вызовом перезаписи с интервалом в 1 час
-func (ch *Cache) StartAuthoRefresh() {
-	ch.Ticker = time.NewTicker(1 * time.Hour)
-	go ch.refreshLoop()
+func (ch *Cache) startCleanup(interval time.Duration) {
+	ch.Ticker = time.NewTicker(interval)
+	go func() {
+		for range ch.Ticker.C {
+			ch.removeCheck()
+		}
+	}()
 }
 
-// вызов метода перезаписи кэша с логированием ошибки
-func (ch *Cache) refreshLoop() {
-	for range ch.Ticker.C {
-		if err := ch.authoRefresh(); err != nil {
-			log.Printf("Ошибка перезаписи кэша: %v", err)
+func (ch *Cache) removeCheck() {
+	ch.Mu.Lock()
+	defer ch.Mu.Unlock()
+
+	now := time.Now()
+	deletedCount := 0
+
+	for key, entry := range ch.Cache {
+		if now.After(entry.expiresAt) {
+			delete(ch.Cache, key)
+			deletedCount++
 		}
 	}
+	if deletedCount > 0 {
+		log.Printf("Удалено %d просроченных записей", deletedCount)
+	}
 }
+
+// // функция перезаписывающая текущий кэш
+// func (ch *Cache) authoRefresh() error {
+// 	ch.Mu.Lock()
+// 	defer ch.Mu.Unlock()
+// 	ch.Cache = make(map[string]order.IncomingData)
+
+// 	return ch.CacheInit()
+// }
+
+// // исключительно для остановки тикера через defer в функции main
+// func (ch *Cache) StopAuthoRefresh() {
+// 	if ch.Ticker != nil {
+// 		ch.Ticker.Stop()
+// 	}
+// }
+
+// // метод с вызовом перезаписи с интервалом в 1 час
+// func (ch *Cache) StartAuthoRefresh() {
+// 	ch.Ticker = time.NewTicker(1 * time.Hour)
+// 	go ch.refreshLoop()
+// }
+
+// // вызов метода перезаписи кэша с логированием ошибки
+// func (ch *Cache) refreshLoop() {
+// 	for range ch.Ticker.C {
+// 		if err := ch.authoRefresh(); err != nil {
+// 			log.Printf("Ошибка перезаписи кэша: %v", err)
+// 		}
+// 	}
+// }
