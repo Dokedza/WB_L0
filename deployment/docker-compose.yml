@@ -37,7 +37,7 @@ services:
     image: postgres:15-alpine
     container_name: postgres
     environment:
-      POSTGRES_DB: wb_orders
+      POSTGRES_DB: WB_L0
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 5037
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -45,13 +45,36 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d wb_orders"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: unless-stopped
+
+
+  # Сервис миграций 
+  migrations:
+    build: .
+    container_name: migrations
+    command: >
+      sh -c "
+        echo 'Ждём готовности БД...' &&
+        sleep 10 &&
+        echo 'Загружаем goose...' &&
+        wget -O /usr/local/bin/goose https://github.com/pressly/goose/releases/download/v3.25.0/goose_linux_x86_64 &&
+        chmod +x /usr/local/bin/goose &&
+        echo 'Применяем миграции...' &&
+        goose -dir /app/migrations postgres 'host=postgres user=postgres password=5037 dbname=WB_L0 sslmode=disable' up &&
+        echo 'Миграции применены!' &&
+        exit 0
+      "
+    volumes:
+      - ./migrations:/app/migrations  # монтируем папку с миграциями
+    depends_on:
+      postgres:
+        condition: service_healthy  # ждём готовности БД
+    restart: on-failure  # перезапуск только при ошибке
 
   # Go-приложение
   app:
@@ -62,11 +85,13 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=wb_orders
+      - DB_NAME=WB_L0
       - DB_USER=postgres
       - DB_PASSWORD=5037
       - NATS_URL=redpanda:9092
     depends_on:
+      migration:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy  # Ждем готовности БД
       redpanda:

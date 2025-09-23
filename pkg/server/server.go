@@ -6,12 +6,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/dokedza/WB_L0/pkg/api"
+	// "github.com/dokedza/WB_L0/domain"
+	api "github.com/dokedza/WB_L0/app/handler"
+	"github.com/dokedza/WB_L0/app/service"
 	kf "github.com/dokedza/WB_L0/pkg/kafkain"
 )
 
 // функция создания сервера
-func Run(c *api.Apistruct) error {
+func Run(c *service.Apistruct) error {
 	port := 7540
 
 	envPort := os.Getenv("TODO_PORT")

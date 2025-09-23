@@ -10,21 +10,21 @@ import (
 	order "github.com/dokedza/WB_L0/domain"
 )
 
-type cacheEntry struct {
-	data      order.IncomingData
-	expiresAt time.Time
+type CacheEntry struct {
+	Data      order.IncomingData
+	ExpiresAt time.Time
 }
 
 // структрура для кэша
 type Cache struct {
 	Mu     sync.RWMutex
-	Cache  map[string]cacheEntry
+	Cache  map[string]CacheEntry
 	Ticker *time.Ticker
 }
 
 func New() *Cache {
 	return &Cache{
-		Cache: make(map[string]cacheEntry, 100),
+		Cache: make(map[string]CacheEntry, 100),
 		Mu:    sync.RWMutex{},
 	}
 }
@@ -88,9 +88,9 @@ func (ch *Cache) CacheInit() error {
 	// Переносим данные в основной кэш с TTL
 	ch.Mu.Lock()
 	for key, data := range tempCache {
-		ch.Cache[key] = cacheEntry{
-			data:      data,
-			expiresAt: time.Now().Add(1 * time.Hour), // Устанавливаем TTL 1 час
+		ch.Cache[key] = CacheEntry{
+			Data:      data,
+			ExpiresAt: time.Now().Add(1 * time.Hour), // Устанавливаем TTL 1 час
 		}
 	}
 	ch.Mu.Unlock()
@@ -105,19 +105,19 @@ func (ch *Cache) GiveFromCache(OrdUID string) (*order.IncomingData, error) {
 	if !exists {
 		return nil, errors.New("Отсутствует в кэше")
 	}
-	if time.Now().After(a.expiresAt) {
+	if time.Now().After(a.ExpiresAt) {
 		return nil, errors.New("Запись просрочена")
 	}
-	return &a.data, nil
+	return &a.Data, nil
 }
 
 // функция для добавления новой записи в кэш
 func (ch *Cache) Set(key string, data order.IncomingData) {
 	ch.Mu.Lock()
 	defer ch.Mu.Unlock()
-	ch.Cache[key] = cacheEntry{
-		data:      data,
-		expiresAt: time.Now().Add(1 * time.Hour),
+	ch.Cache[key] = CacheEntry{
+		Data:      data,
+		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 }
 func (ch *Cache) startCleanup(interval time.Duration) {
@@ -137,7 +137,7 @@ func (ch *Cache) removeCheck() {
 	deletedCount := 0
 
 	for key, entry := range ch.Cache {
-		if now.After(entry.expiresAt) {
+		if now.After(entry.ExpiresAt) {
 			delete(ch.Cache, key)
 			deletedCount++
 		}

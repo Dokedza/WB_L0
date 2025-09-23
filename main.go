@@ -1,22 +1,15 @@
 package main
 
 import (
-	"fmt"
-
-	database "go1f/pkg/database"
 	server "go1f/pkg/server"
 
-	"github.com/dokedza/WB_L0/pkg/api"
+	database "github.com/dokedza/WB_L0/app/repository"
+
+	api "github.com/dokedza/WB_L0/app/service"
 	ch "github.com/dokedza/WB_L0/pkg/cache"
 )
 
 func main() {
-
-	//инициация всех таблиц
-	err := database.Init()
-	if err != nil {
-		fmt.Println(err)
-	}
 
 	//нинициализация кэша
 	myCache := ch.New()
@@ -27,11 +20,11 @@ func main() {
 
 	myCache.CacheInit()
 	// запуск метода перезаписи кэша раз в 1 час
-	myCache.StartAuthoRefresh()
+	// myCache.StartAuthoRefresh()
 	// мягкая остановка перезаписи кэша при остановке программы
-	defer myCache.StopAuthoRefresh()
+	// defer myCache.StopAuthoRefresh()
 	// запуск сервера, обработка ошибок
-	err = server.Run(c)
+	err := server.Run(c)
 	if err != nil {
 		panic(err)
 	}

@@ -1,4 +1,4 @@
-package api
+package service
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	db "go1f/pkg/database"
+	db "github.com/dokedza/WB_L0/app/repository"
 
 	order "github.com/dokedza/WB_L0/domain"
 )
@@ -19,7 +19,7 @@ type Apistruct struct {
 }
 
 // возврат данных по UID
-func (ap *Apistruct) getBackOrderhandler(w http.ResponseWriter, r *http.Request) {
+func (ap *Apistruct) GetBackOrderhandler(w http.ResponseWriter, r *http.Request) {
 
 	Uid := r.URL.Query().Get("order_uid")
 	if Uid == "" {
@@ -33,7 +33,7 @@ func (ap *Apistruct) getBackOrderhandler(w http.ResponseWriter, r *http.Request)
 	}
 	jsonData, err := json.Marshal(DataResp)
 	if err != nil {
-		jsonWriter(w, map[string]any{"error": "Ошибка отправки"})
+		jsonWriter(w, map[string]any{"error": fmt.Errorf("Ошибка отправки: %w", err).Error()})
 		return
 	}
 	w.Write(jsonData)
@@ -47,12 +47,12 @@ func (ap *Apistruct) PutData(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 
 	if err != nil {
-		jsonWriter(w, map[string]any{"error": "Ошибка входящих данных"})
+		jsonWriter(w, map[string]any{"error": fmt.Errorf("Ошибка входящих данных: %w", err).Error()})
 		return
 	}
 	err = json.Unmarshal(body, &dataResp)
 	if err != nil {
-		jsonWriter(w, map[string]string{"error": "Ошибка декодирования"})
+		jsonWriter(w, map[string]string{"error": fmt.Errorf("Ошибка декодирования: %w", err).Error()})
 		return
 	}
 	err = db.DataHasArrivedInOrders(&dataResp, ap.Bdstruct)

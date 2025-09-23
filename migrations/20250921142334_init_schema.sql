@@ -57,6 +57,14 @@ CREATE TABLE items (
     brand VARCHAR(100),
     status INTEGER
 );
+
+ALTER TABLE delivery ADD CONSTRAINT fk_delivery_order FOREIGN KEY (order_uid) REFERENCES orders(order_uid);
+ALTER TABLE payment ADD CONSTRAINT fk_payment_order FOREIGN KEY (order_uid) REFERENCES orders(order_uid);
+ALTER TABLE items ADD CONSTRAINT fk_items_order FOREIGN KEY (order_uid) REFERENCES orders(order_uid);
+
+CREATE INDEX idx_delivery_order_uid ON delivery(order_uid);
+CREATE INDEX idx_payment_order_uid ON payment(order_uid);
+CREATE INDEX idx_items_order_uid ON items(order_uid);
 -- +goose StatementEnd
 
 -- +goose Down

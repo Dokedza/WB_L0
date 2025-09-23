@@ -6,6 +6,7 @@ import (
 
 	order "github.com/dokedza/WB_L0/domain"
 	cache "github.com/dokedza/WB_L0/pkg/cache"
+	_ "github.com/lib/pq"
 )
 
 // функция обработки поступающих данных в дб

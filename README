@@ -46,3 +46,23 @@ SERVER_PORT — порт приложения
 Раз в час кеш очищается
 
 Для работы нужен Docker
+
+
+
+# Пересоздать БД полностью (ОСТОРОЖНО - данные удалятся!)
+make migrate-reset
+
+# Просто применить миграции
+make migrate-up
+
+# Откатить последнюю миграцию
+make migrate-down
+
+# Посмотреть статус
+make migrate-status
+
+# Создать новую миграцию
+make migrate-create name=add_new_field
+
+# Для запуска docker-compose 
+docker-compose -f deployment/docker-compose.yml up --build

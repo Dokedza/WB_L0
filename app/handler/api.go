@@ -2,10 +2,12 @@ package api
 
 import (
 	"net/http"
+
+	ap "github.com/dokedza/WB_L0/app/service"
 )
 
-func Init(c *Apistruct) {
-	http.HandleFunc("/api/task/getBackOrderhandler", corsMiddleware(c.getBackOrderhandler))
+func Init(c *ap.Apistruct) {
+	http.HandleFunc("/api/task/getBackOrderhandler", corsMiddleware(c.GetBackOrderhandler))
 	http.HandleFunc("/api/task/PutData", c.PutData)
 }
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
