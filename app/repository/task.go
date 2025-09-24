@@ -2,7 +2,8 @@ package database
 
 import (
 	"database/sql"
-	"errors"
+	"fmt"
+	"log"
 
 	order "github.com/dokedza/WB_L0/domain"
 	cache "github.com/dokedza/WB_L0/pkg/cache"
@@ -14,7 +15,7 @@ func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
 	ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
-		return errors.New("Ошибка подключения к базе данных")
+		return fmt.Errorf("Ошибка подключения к базе данных: %w", err)
 	}
 	defer db.Close()
 	// Сначала вставляем данные в таблицу delivery и получаем delivery_id
@@ -25,7 +26,7 @@ func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
 		in.Delivery.Address, in.Delivery.Region, in.Delivery.Email).Scan(&deliveryID)
 
 	if err != nil {
-		return errors.New("Ошибка выполнения INSERT")
+		return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
 	}
 
 	// Затем вставляем данные в таблицу payment и получаем payment_id
@@ -39,7 +40,8 @@ func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
 		in.Payment.GoodsTotal, in.Payment.CustomFee).Scan(&paymentID)
 
 	if err != nil {
-		return errors.New("Ошибка выполнения INSERT")
+		// return errors.New("Ошибка выполнения INSERT")
+		return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
 	}
 
 	// также заполняем таблицу items
@@ -49,7 +51,7 @@ func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
 			item.ChrtId, item.TrackNumber, item.Price, item.Rid, item.Name,
 			item.Sale, item.Size, item.TotalPrice, item.NmID, item.Brand, item.Status, in.OrderUID)
 		if err != nil {
-			return errors.New("Ошибка выполнения INSERT")
+			return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
 		}
 
 	}
@@ -64,13 +66,13 @@ func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
 		in.SmID, in.DateCreated, in.OofShard)
 
 	if err != nil {
-		return errors.New("Ошибка выполнения INSERT")
+		return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
 	}
 
 	// теперь добавляем данные в кэш
 
 	bd.Cache.Set(in.OrderUID, *in)
-
+	log.Print("Данные успешно добавлены в таблицу и кэш")
 	return nil
 }
 
@@ -86,6 +88,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 	data, err := c.Cache.GiveFromCache(ordUid)
 
 	if err == nil {
+		log.Print("Данные отданы из кэша")
 		return data, nil
 	} else {
 
@@ -95,7 +98,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 		db, err := sql.Open("postgres", ConnStr)
 
 		if err != nil {
-			return nil, errors.New("Ошибка подключения к базе данных")
+			return nil, fmt.Errorf("Ошибка подключения к таблице: %w", err)
 		}
 		defer db.Close()
 
@@ -116,7 +119,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 			&ots.Payment.Currency, &ots.Payment.Provider, &ots.Payment.Amount, &ots.Payment.PaymentDt, &ots.Payment.Bank, &ots.Payment.DeliveryCost, &ots.Payment.GoodsTotal,
 			&ots.Payment.CustomFee, &ots.InternalSignature, &ots.CustomerID, &ots.DeliveryService, &ots.Shardkey, &ots.SmID, &ots.DateCreated, &ots.OofShard)
 		if err != nil {
-			return nil, errors.New("Ошибка выполнения SELECT")
+			return nil, fmt.Errorf("Ошибка получения из таблицы: %w", err)
 		}
 
 		itemsRows, err := db.Query(`SELECT i.chtr_id, i.track_number, i.price, i.rid, i.name, i.sale, i.size,
@@ -124,7 +127,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 	FROM items i 
 	WHERE i.order_uid = $1 `, ordUid)
 		if err != nil {
-			return nil, errors.New("Ошибка выполнения SELECT")
+			return nil, fmt.Errorf("Ошибка получения из таблицы: %w", err)
 		}
 		defer itemsRows.Close()
 
@@ -132,7 +135,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 			item := order.Item{}
 			err = itemsRows.Scan(&item.ChrtId, &item.TrackNumber, &item.Price, &item.Rid, &item.Name, &item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status)
 			if err != nil {
-				return nil, errors.New("Ошибка выполнения SELECT")
+				return nil, fmt.Errorf("Ошибка получения из таблицы: %w", err)
 			}
 			ots.Items = append(ots.Items, item)
 		}
@@ -140,7 +143,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 		//добавление получаемого заказа в кэш
 
 		c.Cache.Set(ordUid, *ots)
-
+		log.Print("Данные успешно отданы и добавлены в кэш")
 		return ots, nil
 	}
 }
