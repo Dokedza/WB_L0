@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	ap "github.com/dokedza/WB_L0/app/service"
+	ap "WB_L0/app/service"
 )
 
 func Init(c *ap.Apistruct) {

@@ -3,15 +3,16 @@ package cache
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	order "github.com/dokedza/WB_L0/domain"
+	"WB_L0/domain"
 )
 
 type CacheEntry struct {
-	Data      order.IncomingData
+	Data      domain.IncomingData
 	ExpiresAt time.Time
 }
 
@@ -35,7 +36,7 @@ func (ch *Cache) CacheInit() error {
 	ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
-		return errors.New("Ошибка подключения к базе данных")
+		return fmt.Errorf("Ошибка подключения к базе данных: %w", err)
 	}
 
 	defer db.Close()
@@ -48,20 +49,20 @@ func (ch *Cache) CacheInit() error {
 	JOIN orders o ON d.delivery_id = o.delivery_id
 	JOIN payment p ON o.payment_id = p.payment_id;`)
 	if err != nil {
-		return errors.New("Ошибка выполнения SELECT")
+		return fmt.Errorf("Ошибка получения из таблицы: %w", err)
 	}
 
 	defer OrdRows.Close()
 	// Временная мапа для загруженных данных
-	tempCache := make(map[string]order.IncomingData)
+	tempCache := make(map[string]domain.IncomingData)
 	for OrdRows.Next() {
-		ots := order.IncomingData{}
+		ots := domain.IncomingData{}
 		err = OrdRows.Scan(&ots.OrderUID, &ots.TrackNumber, &ots.Entry, &ots.Locale, &ots.Delivery.Name, &ots.Delivery.Phone, &ots.Delivery.Zip,
 			&ots.Delivery.City, &ots.Delivery.Address, &ots.Delivery.Region, &ots.Delivery.Email, &ots.Payment.Transaction, &ots.Payment.RequestID,
 			&ots.Payment.Currency, &ots.Payment.Provider, &ots.Payment.Amount, &ots.Payment.PaymentDt, &ots.Payment.Bank, &ots.Payment.DeliveryCost, &ots.Payment.GoodsTotal,
 			&ots.Payment.CustomFee, &ots.InternalSignature, &ots.CustomerID, &ots.DeliveryService, &ots.Shardkey, &ots.SmID, &ots.DateCreated, &ots.OofShard)
 		if err != nil {
-			return errors.New("Ошибка заполнения кэша")
+			return fmt.Errorf("Ошибка получения из таблицы: %w", err)
 		}
 
 		itemsRows, err := db.Query(`SELECT i.chtr_id, i.track_number, i.price, i.rid, i.name, i.sale, i.size,
@@ -69,16 +70,16 @@ func (ch *Cache) CacheInit() error {
 		FROM items i 
 		WHERE i.order_uid = $1 `, ots.OrderUID)
 		if err != nil {
-			return errors.New("Ошибка выполнения SELECT")
+			return fmt.Errorf("Ошибка получения из таблицы: %w", err)
 		}
 
 		defer itemsRows.Close()
 
 		for itemsRows.Next() {
-			item := order.Item{}
+			item := domain.Item{}
 			err = itemsRows.Scan(&item.ChrtId, &item.TrackNumber, &item.Price, &item.Rid, &item.Name, &item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status)
 			if err != nil {
-				return errors.New("Ошибка заполнения Items")
+				return fmt.Errorf("Ошибка получения из таблицы: %w", err)
 			}
 			ots.Items = append(ots.Items, item)
 		}
@@ -97,10 +98,10 @@ func (ch *Cache) CacheInit() error {
 
 	ch.startCleanup(1 * time.Minute)
 
-	log.Printf("Кэш инициализирован: згружено %d записей", len(tempCache))
+	log.Printf("Кэш инициализирован: загружено %d записей", len(tempCache))
 	return nil
 }
-func (ch *Cache) GiveFromCache(OrdUID string) (*order.IncomingData, error) {
+func (ch *Cache) GiveFromCache(OrdUID string) (*domain.IncomingData, error) {
 	a, exists := ch.Cache[OrdUID]
 	if !exists {
 		return nil, errors.New("Отсутствует в кэше")
@@ -112,14 +113,16 @@ func (ch *Cache) GiveFromCache(OrdUID string) (*order.IncomingData, error) {
 }
 
 // функция для добавления новой записи в кэш
-func (ch *Cache) Set(key string, data order.IncomingData) {
+func (ch *Cache) Set(key string, data *domain.IncomingData) {
 	ch.Mu.Lock()
 	defer ch.Mu.Unlock()
 	ch.Cache[key] = CacheEntry{
-		Data:      data,
+		Data:      *data,
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 }
+
+// вызов тикера для автопроверки
 func (ch *Cache) startCleanup(interval time.Duration) {
 	ch.Ticker = time.NewTicker(interval)
 	go func() {
@@ -129,6 +132,7 @@ func (ch *Cache) startCleanup(interval time.Duration) {
 	}()
 }
 
+// очистка устаревшего кэша с предварительной проверкой
 func (ch *Cache) removeCheck() {
 	ch.Mu.Lock()
 	defer ch.Mu.Unlock()

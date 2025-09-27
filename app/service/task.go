@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
-	db "github.com/dokedza/WB_L0/app/repository"
+	db "WB_L0/app/repository"
 
-	order "github.com/dokedza/WB_L0/domain"
+	order "WB_L0/domain"
 )
 
 type DataResp struct {

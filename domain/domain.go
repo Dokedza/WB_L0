@@ -2,8 +2,6 @@ package domain
 
 import (
 	"time"
-	// "sync"
-	// cache "github.com/dokedza/WB_L0/pkg/cache"
 )
 
 // описание структуры входящих данных

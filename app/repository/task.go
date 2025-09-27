@@ -1,17 +1,19 @@
-package database
+package repository
 
 import (
 	"database/sql"
 	"fmt"
 	"log"
 
-	order "github.com/dokedza/WB_L0/domain"
-	cache "github.com/dokedza/WB_L0/pkg/cache"
+	"WB_L0/domain"
+
+	cache "WB_L0/pkg/cache"
+
 	_ "github.com/lib/pq"
 )
 
 // функция обработки поступающих данных в дб
-func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
+func DataHasArrivedInOrders(in *domain.IncomingData, bd *Bdstruct) error {
 	ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
@@ -71,7 +73,7 @@ func DataHasArrivedInOrders(in *order.IncomingData, bd *Bdstruct) error {
 
 	// теперь добавляем данные в кэш
 
-	bd.Cache.Set(in.OrderUID, *in)
+	bd.Cache.Set(in.OrderUID, in)
 	log.Print("Данные успешно добавлены в таблицу и кэш")
 	return nil
 }
@@ -81,7 +83,7 @@ type Bdstruct struct {
 }
 
 // функция отправки доставки по её номеру order_uid
-func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error) {
+func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*domain.IncomingData, error) {
 
 	//если есть в кэше отдаёт по нему
 
@@ -113,7 +115,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 	JOIN payment p ON o.payment_id = p.payment_id
 	WHERE o.order_uid = $1`, ordUid)
 
-		ots := &order.IncomingData{}
+		ots := &domain.IncomingData{}
 		err = row.Scan(&ots.OrderUID, &ots.TrackNumber, &ots.Entry, &ots.Locale, &ots.Delivery.Name, &ots.Delivery.Phone, &ots.Delivery.Zip,
 			&ots.Delivery.City, &ots.Delivery.Address, &ots.Delivery.Region, &ots.Delivery.Email, &ots.Payment.Transaction, &ots.Payment.RequestID,
 			&ots.Payment.Currency, &ots.Payment.Provider, &ots.Payment.Amount, &ots.Payment.PaymentDt, &ots.Payment.Bank, &ots.Payment.DeliveryCost, &ots.Payment.GoodsTotal,
@@ -132,7 +134,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 		defer itemsRows.Close()
 
 		for itemsRows.Next() {
-			item := order.Item{}
+			item := domain.Item{}
 			err = itemsRows.Scan(&item.ChrtId, &item.TrackNumber, &item.Price, &item.Rid, &item.Name, &item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status)
 			if err != nil {
 				return nil, fmt.Errorf("Ошибка получения из таблицы: %w", err)
@@ -142,7 +144,7 @@ func (c *Bdstruct) GiveBackOrdrerData(ordUid string) (*order.IncomingData, error
 
 		//добавление получаемого заказа в кэш
 
-		c.Cache.Set(ordUid, *ots)
+		c.Cache.Set(ordUid, ots)
 		log.Print("Данные успешно отданы и добавлены в кэш")
 		return ots, nil
 	}

@@ -6,10 +6,9 @@ import (
 	"os"
 	"strconv"
 
-	// "github.com/dokedza/WB_L0/domain"
-	api "github.com/dokedza/WB_L0/app/handler"
-	"github.com/dokedza/WB_L0/app/service"
-	kf "github.com/dokedza/WB_L0/pkg/kafkain"
+	api "WB_L0/app/handler"
+	"WB_L0/app/service"
+	kf "WB_L0/pkg/kafkain"
 )
 
 // функция создания сервера

@@ -1,12 +1,12 @@
 package main
 
 import (
-	server "go1f/pkg/server"
+	server "WB_L0/pkg/server"
 
-	database "github.com/dokedza/WB_L0/app/repository"
+	database "WB_L0/app/repository"
 
-	api "github.com/dokedza/WB_L0/app/service"
-	ch "github.com/dokedza/WB_L0/pkg/cache"
+	api "WB_L0/app/service"
+	ch "WB_L0/pkg/cache"
 )
 
 func main() {
