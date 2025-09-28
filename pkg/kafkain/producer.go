@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	database "WB_L0/app/repository"
 	order "WB_L0/domain"
@@ -19,7 +20,7 @@ func ConsumeMessage() {
 	groupID := "my-group"
 	// Создаем новый reader для Kafka
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{"localhost:29092"},
+		Brokers:   []string{"redpanda:9092"},
 		Topic:     topic,
 		Partition: partition,
 		GroupID:   groupID,
@@ -29,31 +30,33 @@ func ConsumeMessage() {
 
 	for {
 		// Читаем сообщение из Kafka
-		log.Println("Waiting for new messages...")
+		log.Println("Ожидание сообщений...")
 		msg, err := r.ReadMessage(context.Background())
 		if err != nil {
-			log.Fatal("failed to read message:", err)
+			log.Println("Не удалось прочесть сообщение:", err)
+			time.Sleep(5 * time.Second)
+			continue
 		}
 
 		var dataResp order.IncomingData
 		err = json.Unmarshal(msg.Value, &dataResp)
 		if err != nil {
-			log.Println("failed to unmarshal message:", err)
+			log.Println("Не удалось декодировать сообщение:", err)
 			continue
 		}
 
 		// Обрабатываем сообщение
 		err = database.DataHasArrivedInOrders(&dataResp, nil)
 		if err != nil {
-			log.Println("failed to process message:", err)
+			log.Println("Не удалось обработать сообщение:", err)
 			continue
 		}
 
 		// Сообщение успешно обработано, можно проводить коммит
 		if err := r.CommitMessages(context.Background(), msg); err != nil {
-			log.Println("failed to commit message:", err)
+			log.Println("Не удалось сохранить сообщение:", err)
 		}
 
-		fmt.Println("Message processed successfully")
+		fmt.Println("Сообщение успешно обработано")
 	}
 }

@@ -19,14 +19,16 @@ type Migrator struct {
 func New(db *sql.DB) *Migrator {
 	return &Migrator{
 		db:      db,
-		timeout: 40 * time.Second,
+		timeout: 120 * time.Second,
 	}
 }
 
+// установка таймаута
 func (m *Migrator) SetTimeout(t time.Duration) {
 	m.timeout = t
 }
 
+// проверка подключения
 func (m *Migrator) WaitingDB() error {
 	deadpool := time.Now().Add(m.timeout)
 	log.Printf("Ожидание подключения базы данных (таймаут: %v)..", m.timeout)
@@ -40,6 +42,8 @@ func (m *Migrator) WaitingDB() error {
 	}
 	return fmt.Errorf("Не удалось подклучиться к базе данных за %v", m.timeout)
 }
+
+// выполнение миграций с логированием
 func (m *Migrator) RunMigrations() error {
 	err := m.WaitingDB()
 	if err != nil {
@@ -47,13 +51,13 @@ func (m *Migrator) RunMigrations() error {
 	}
 	vers, err := goose.GetDBVersion(m.db)
 	if err != nil {
-		log.Printf("Миграции не применились ошибка: %w", err)
+		log.Printf("Миграции не применились ошибка: %v", err)
 	} else {
 		log.Printf("Текущая версия миграции: %d", vers)
 	}
 
 	log.Println("Начало применения миграций")
-	err = goose.Up(m.db, "../migrations")
+	err = goose.Up(m.db, "/app/migrations")
 	if err != nil {
 		return fmt.Errorf("Ошибка применения миграций: %w", err)
 	}

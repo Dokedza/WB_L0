@@ -14,7 +14,8 @@ import (
 
 func main() {
 	// подключение к бд
-	db, err := sql.Open("postgres", "ваша-строка-подключения")
+	ConnStr := "host=postgres password=5037 user=postgres dbname=WB_L0 sslmode=disable"
+	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
 		log.Fatal("Ошибка подключения к БД:", err)
 	}
@@ -32,7 +33,7 @@ func main() {
 
 	c.Bdstruct.Cache.CacheInit()
 
-	myCache.CacheInit()
+	// myCache.CacheInit()
 	// запуск сервера, обработка ошибок
 	err = server.Run(c)
 	if err != nil {

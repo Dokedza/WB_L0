@@ -187,7 +187,7 @@
         return;
       }
 
-      const baseUrl = 'http://localhost:7540/api/task/getBackOrderhandler';
+      const baseUrl = 'http://localhost:8080/api/task/getBackOrderhandler';
       const url = baseUrl + '?order_uid=' + encodeURIComponent(id);
 
       statusEl.textContent = 'Выполняется запрос...';

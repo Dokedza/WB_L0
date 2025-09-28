@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,7 +14,7 @@ import (
 
 // функция создания сервера
 func Run(c *service.Apistruct) error {
-	port := 7540
+	port := 8080
 
 	envPort := os.Getenv("TODO_PORT")
 	if envPort != "" {
@@ -27,7 +28,7 @@ func Run(c *service.Apistruct) error {
 
 	api.Init(c)
 	http.Handle("/", http.FileServer(http.Dir("web")))
-	fmt.Printf("Сервер запущен на порту: http://localhost:%d", port)
+	log.Printf("Сервер запущен на порту: http://localhost:%d", port)
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 

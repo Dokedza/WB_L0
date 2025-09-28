@@ -14,61 +14,59 @@ import (
 
 // функция обработки поступающих данных в дб
 func DataHasArrivedInOrders(in *domain.IncomingData, bd *Bdstruct) error {
-	ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
+	ConnStr := "host=postgres password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
 		return fmt.Errorf("Ошибка подключения к базе данных: %w", err)
 	}
 	defer db.Close()
-	// Сначала вставляем данные в таблицу delivery и получаем delivery_id
-	var deliveryID int
-	err = db.QueryRow(`INSERT INTO delivery (name, phone, zip, city, address, region, email) 
-	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING delivery_id`,
-		in.Delivery.Name, in.Delivery.Phone, in.Delivery.Zip, in.Delivery.City,
-		in.Delivery.Address, in.Delivery.Region, in.Delivery.Email).Scan(&deliveryID)
+
+	// Теперь вставляем данные в таблицу orders
+	_, err = db.Exec(`INSERT INTO orders (order_uid, track_number, entry, locale,
+	 internal_signature, customer_id, delivery_service, 
+		shardkey, sm_id, date_created, oof_shard) VALUES($1, $2, $3, $4, $5, 
+		$6, $7, $8, $9, $10, $11)`,
+		in.OrderUID, in.TrackNumber, in.Entry, in.Locale, in.InternalSignature,
+		in.CustomerID, in.DeliveryService, in.Shardkey,
+		in.SmID, in.DateCreated, in.OofShard)
 
 	if err != nil {
-		return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
+		return fmt.Errorf("Ошибка заполнения таблицы orders: %w", err)
+	}
+	// Сначала вставляем данные в таблицу delivery
+	_, err = db.Exec(`INSERT INTO delivery (order_uid ,name, phone, zip, city, address, region, email) 
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) `, in.OrderUID,
+		in.Delivery.Name, in.Delivery.Phone, in.Delivery.Zip, in.Delivery.City,
+		in.Delivery.Address, in.Delivery.Region, in.Delivery.Email)
+
+	if err != nil {
+		return fmt.Errorf("Ошибка заполнения таблицы delivery: %w", err)
 	}
 
-	// Затем вставляем данные в таблицу payment и получаем payment_id
-	var paymentID int
-	err = db.QueryRow(`INSERT INTO payment (transaction, request_id, currency, provider, 
+	// Затем вставляем данные в таблицу payment
+	_, err = db.Exec(`INSERT INTO payment (order_uid,transaction, request_id, currency, provider, 
 		amount, payment_dt, bank, delivery_cost, goods_total, custom_fee) 
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING payment_id`,
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING payment_id`, in.OrderUID,
 		in.Payment.Transaction, in.Payment.RequestID, in.Payment.Currency,
 		in.Payment.Provider, in.Payment.Amount, in.Payment.PaymentDt,
 		in.Payment.Bank, in.Payment.DeliveryCost,
-		in.Payment.GoodsTotal, in.Payment.CustomFee).Scan(&paymentID)
+		in.Payment.GoodsTotal, in.Payment.CustomFee)
 
 	if err != nil {
 		// return errors.New("Ошибка выполнения INSERT")
-		return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
+		return fmt.Errorf("Ошибка заполнения таблицы payment: %w", err)
 	}
 
 	// также заполняем таблицу items
 	items := in.Items
 	for _, item := range items {
-		_, err := db.Exec("INSERT INTO items(chtr_id, track_number,price, rid,name,sale,size,total_price,nm_id,brand,status, order_uid) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+		_, err := db.Exec("INSERT INTO items(chrt_id, track_number,price, rid,name,sale,size,total_price,nm_id,brand,status, order_uid) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
 			item.ChrtId, item.TrackNumber, item.Price, item.Rid, item.Name,
 			item.Sale, item.Size, item.TotalPrice, item.NmID, item.Brand, item.Status, in.OrderUID)
 		if err != nil {
-			return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
+			return fmt.Errorf("Ошибка заполнения таблицы items: %w", err)
 		}
 
-	}
-	// Теперь вставляем данные в таблицу orders
-	_, err = db.Exec(`INSERT INTO orders (order_uid, track_number, entry, locale, 
-		delivery_id, payment_id, internal_signature, customer_id, delivery_service, 
-		shardkey, sm_id, date_created, oof_shard) VALUES($1, $2, $3, $4, $5, 
-		$6, $7, $8, $9, $10, $11, $12, $13)`,
-		in.OrderUID, in.TrackNumber, in.Entry, in.Locale,
-		deliveryID, paymentID, in.InternalSignature,
-		in.CustomerID, in.DeliveryService, in.Shardkey,
-		in.SmID, in.DateCreated, in.OofShard)
-
-	if err != nil {
-		return fmt.Errorf("Ошибка заполнения таблицы: %w", err)
 	}
 
 	// теперь добавляем данные в кэш
