@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"log"
 
-	database "github.com/dokedza/WB_L0/app/repository"
-	order "github.com/dokedza/WB_L0/domain"
+	database "WB_L0/app/repository"
+	order "WB_L0/domain"
+
 	"github.com/segmentio/kafka-go"
 )
 

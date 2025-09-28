@@ -1,7 +1,10 @@
 package main
 
 import (
+	"WB_L0/app/migrator"
 	server "WB_L0/pkg/server"
+	"database/sql"
+	"log"
 
 	database "WB_L0/app/repository"
 
@@ -10,21 +13,28 @@ import (
 )
 
 func main() {
-
+	// подключение к бд
+	db, err := sql.Open("postgres", "ваша-строка-подключения")
+	if err != nil {
+		log.Fatal("Ошибка подключения к БД:", err)
+	}
+	defer db.Close()
+	// автомиграции
+	mgr := migrator.New(db)
+	err = mgr.RunMigrations()
+	if err != nil {
+		log.Fatal("Ошибка миграций", err)
+	}
 	//нинициализация кэша
 	myCache := ch.New()
 	myb := &database.Bdstruct{Cache: myCache}
 	c := &api.Apistruct{Bdstruct: myb}
 
-	// c.Bdstruct.Cache.CacheInit()
+	c.Bdstruct.Cache.CacheInit()
 
 	myCache.CacheInit()
-	// запуск метода перезаписи кэша раз в 1 час
-	// myCache.StartAuthoRefresh()
-	// мягкая остановка перезаписи кэша при остановке программы
-	// defer myCache.StopAuthoRefresh()
 	// запуск сервера, обработка ошибок
-	err := server.Run(c)
+	err = server.Run(c)
 	if err != nil {
 		panic(err)
 	}

@@ -5,9 +5,9 @@ import (
 	"database/sql"
 )
 
-type orderRepository interface {
-	GiveBackOrdrerData(ordUid string) (*domain.IncomingData, error)
-	DataHasArrivedInOrders(in *domain.IncomingData, bd *Bdstruct) error
+type OrderRepository interface {
+	GetOrder(ordUid string) (*domain.IncomingData, error)
+	SaveOrder(in *domain.IncomingData) error
 }
 type DB interface {
 	QueryRow(query string, args ...interface{}) *sql.Row
@@ -16,13 +16,15 @@ type DB interface {
 }
 
 type BdstructAdapter struct {
-	db *Bdstruct
+	bd *Bdstruct
 }
 
 func NewBdstructAdapter(db *Bdstruct) *BdstructAdapter {
-	return &BdstructAdapter{db: db}
+	return &BdstructAdapter{bd: db}
 }
 func (b *BdstructAdapter) GetOrder(orderUID string) (*domain.IncomingData, error) {
-	data, err := b.db.GiveBackOrdrerData(orderUID)
-	return data, err
+	return b.bd.GiveBackOrdrerData(orderUID)
+}
+func (b *BdstructAdapter) SaveOrder(order *domain.IncomingData) error {
+	return DataHasArrivedInOrders(order, b.bd)
 }
