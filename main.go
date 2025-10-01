@@ -29,14 +29,19 @@ func main() {
 	//нинициализация кэша
 	myCache := ch.New()
 	myb := &database.Bdstruct{Cache: myCache}
-	c := &api.Apistruct{Bdstruct: myb}
 
-	c.Bdstruct.Cache.CacheInit()
+	adapter := database.NewBdstructAdapter(myb)
 
-	// myCache.CacheInit()
+	c := &api.Apistruct{OrderRepo: adapter}
+
+	err = myCache.CacheInit()
+	if err != nil {
+		log.Fatal("Ошибка инициализации кэша")
+	}
+
 	// запуск сервера, обработка ошибок
 	err = server.Run(c)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }

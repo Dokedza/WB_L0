@@ -15,7 +15,8 @@ type DataResp struct {
 	Data []*order.IncomingData `json:"data"`
 }
 type Apistruct struct {
-	Bdstruct *db.Bdstruct
+	// Bdstruct *db.Bdstruct
+	OrderRepo db.OrderRepository
 }
 
 // возврат данных по UID
@@ -26,7 +27,7 @@ func (ap *Apistruct) GetBackOrderhandler(w http.ResponseWriter, r *http.Request)
 		jsonWriter(w, map[string]string{"error": "отсутствует UID"})
 		return
 	}
-	DataResp, err := ap.Bdstruct.GiveBackOrdrerData(Uid)
+	DataResp, err := ap.OrderRepo.GetOrder(Uid)
 	if err != nil {
 		jsonWriter(w, map[string]any{"error": err})
 		return
@@ -55,7 +56,7 @@ func (ap *Apistruct) PutData(w http.ResponseWriter, r *http.Request) {
 		jsonWriter(w, map[string]string{"error": fmt.Errorf("Ошибка декодирования: %w", err).Error()})
 		return
 	}
-	err = db.DataHasArrivedInOrders(&dataResp, ap.Bdstruct)
+	err = ap.OrderRepo.SaveOrder(&dataResp)
 	if err != nil {
 		jsonWriter(w, map[string]string{"error": fmt.Errorf("Ошибка связи с таблицами: %w", err).Error()})
 		return

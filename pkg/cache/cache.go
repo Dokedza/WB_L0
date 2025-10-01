@@ -33,7 +33,7 @@ func New() *Cache {
 // вытаскиваем в кэш все значения из бд
 func (ch *Cache) CacheInit() error {
 
-	ConnStr := "password=5037 user=postgres dbname=WB_L0 sslmode=disable"
+	ConnStr := "host=postgres password=5037 user=postgres dbname=WB_L0 sslmode=disable"
 	db, err := sql.Open("postgres", ConnStr)
 	if err != nil {
 		return fmt.Errorf("Ошибка подключения к базе данных: %w", err)
@@ -150,34 +150,3 @@ func (ch *Cache) removeCheck() {
 		log.Printf("Удалено %d просроченных записей", deletedCount)
 	}
 }
-
-// // функция перезаписывающая текущий кэш
-// func (ch *Cache) authoRefresh() error {
-// 	ch.Mu.Lock()
-// 	defer ch.Mu.Unlock()
-// 	ch.Cache = make(map[string]order.IncomingData)
-
-// 	return ch.CacheInit()
-// }
-
-// // исключительно для остановки тикера через defer в функции main
-// func (ch *Cache) StopAuthoRefresh() {
-// 	if ch.Ticker != nil {
-// 		ch.Ticker.Stop()
-// 	}
-// }
-
-// // метод с вызовом перезаписи с интервалом в 1 час
-// func (ch *Cache) StartAuthoRefresh() {
-// 	ch.Ticker = time.NewTicker(1 * time.Hour)
-// 	go ch.refreshLoop()
-// }
-
-// // вызов метода перезаписи кэша с логированием ошибки
-// func (ch *Cache) refreshLoop() {
-// 	for range ch.Ticker.C {
-// 		if err := ch.authoRefresh(); err != nil {
-// 			log.Printf("Ошибка перезаписи кэша: %v", err)
-// 		}
-// 	}
-// }

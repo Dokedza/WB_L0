@@ -3,6 +3,7 @@ package kafkain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -13,18 +14,26 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
+// пакетная переменная для зависимостей в тестах
+var (
+	readerCreate = func() *kafka.Reader {
+		return kafka.NewReader(kafka.ReaderConfig{
+			Brokers:   []string{"redpanda:9092"},
+			Topic:     "my-topic",
+			Partition: 0,
+			GroupID:   "my-group",
+		})
+	}
+	massageProcessor = ProcessMessage
+	orderRepository  = func(data *order.IncomingData) error {
+		return database.DataHasArrivedInOrders(data, nil)
+	}
+)
+
 // Функция для чтения сообщений из Kafka
 func ConsumeMessage() {
-	topic := "my-topic"
-	partition := 0
-	groupID := "my-group"
 	// Создаем новый reader для Kafka
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{"redpanda:9092"},
-		Topic:     topic,
-		Partition: partition,
-		GroupID:   groupID,
-	})
+	r := readerCreate()
 
 	defer r.Close()
 
@@ -38,18 +47,9 @@ func ConsumeMessage() {
 			continue
 		}
 
-		var dataResp order.IncomingData
-		err = json.Unmarshal(msg.Value, &dataResp)
-		if err != nil {
-			log.Println("Не удалось декодировать сообщение:", err)
-			continue
-		}
-
-		// Обрабатываем сообщение
-		err = database.DataHasArrivedInOrders(&dataResp, nil)
+		err = massageProcessor(msg)
 		if err != nil {
 			log.Println("Не удалось обработать сообщение:", err)
-			continue
 		}
 
 		// Сообщение успешно обработано, можно проводить коммит
@@ -57,6 +57,25 @@ func ConsumeMessage() {
 			log.Println("Не удалось сохранить сообщение:", err)
 		}
 
-		fmt.Println("Сообщение успешно обработано")
 	}
+}
+
+func ProcessMessage(m kafka.Message) error {
+
+	if len(m.Value) == 0 {
+		return errors.New("Пустой json")
+	}
+	if !json.Valid(m.Value) {
+		return errors.New("Не корректный json")
+	}
+	var dataResp order.IncomingData
+	err := json.Unmarshal(m.Value, &dataResp)
+	if err != nil {
+		log.Println("Не удалось декодировать сообщение:", err)
+		return err
+	}
+	fmt.Println("Сообщение успешно обработано")
+
+	return orderRepository(&dataResp)
+
 }
