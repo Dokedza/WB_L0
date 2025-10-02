@@ -65,4 +65,7 @@ make migrate-create name=add_new_field
 docker-compose -f deployment/docker-compose.yml up --build
 
     Запуск тестов
-go test ./...
+проекта:
+        go test ./...
+миграций:
+        .\scripts\test_migrations.bat

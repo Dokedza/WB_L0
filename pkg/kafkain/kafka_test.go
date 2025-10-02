@@ -68,7 +68,15 @@ func TestProcessMessage(t *testing.T) {
 			assert.Equal(t, "ДолгоПисатьОригинал", order.TrackNumber)
 			return nil
 		})
-		// вызов тестируемой функции
+
+	// подмена оригинала, с возвратом
+	original := orderRepository
+	orderRepository = mockRepo.SaveOrder
+	defer func() {
+		orderRepository = original
+	}()
+
+	// вызов тестируемой функции
 	err := ProcessMessage(validMsg)
 
 	assert.NoError(t, err)
